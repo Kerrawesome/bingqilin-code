@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Code Editor</title>
+    <link rel="icon" href="https://em-content.zobj.net/source/google/387/soft-ice-cream_1f366.png" type="image/png">
+
+    <!-- Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <!-- CodeMirror CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.css">
+    <!-- CodeMirror Theme (Neat - Light) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/theme/neat.min.css">
+    <!-- Optional: Addons CSS -->
+    <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/addon/hint/show-hint.min.css"> -->
+
+    <style>
+        /* --- START: Bing Chilling Variables --- */
+        :root {
+            --md-primary-color: #e68a00;
+            --md-primary-dark-color: #cc6f00;
+            --md-background-color: #f5f5f5;
+            --md-surface-color: #ffffff;
+            --md-on-primary-color: #ffffff;
+            --md-on-surface-primary: rgba(0, 0, 0, 0.87);
+            --md-on-surface-secondary: rgba(0, 0, 0, 0.6);
+            --md-border-radius: 4px;
+            --md-elevation-1: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+            --md-elevation-2: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
+            --spacing-unit: 8px;
+            --top-bar-height-desktop: 56px;
+            --top-bar-height-mobile: auto; /* Allow height to adjust for wrapping */
+            --panel-gap: calc(var(--spacing-unit) / 2); /* 4px gap */
+        }
+        /* --- END: Bing Chilling Variables --- */
+
+        * { box-sizing: border-box; }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--md-background-color);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- Top Bar --- */
+        .editor-top-bar {
+            min-height: var(--top-bar-height-desktop); /* Min height for desktop */
+            height: var(--top-bar-height-mobile); /* Auto height for mobile */
+            background-color: var(--md-surface-color);
+            padding: var(--spacing-unit) calc(var(--spacing-unit) * 2); /* Consistent padding */
+            box-shadow: var(--md-elevation-2);
+            z-index: 100;
+            display: flex;
+            /* Default desktop layout */
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: nowrap; /* Prevent wrapping on desktop */
+            flex-shrink: 0;
+            gap: var(--spacing-unit); /* Gap between title block and controls block */
+        }
+
+        /* --- Title Container (Logo + Text + Subtext) --- */
+        .editor-title-block {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-unit);
+            overflow: hidden;
+            flex-shrink: 1; /* Allow title block to shrink if needed */
+        }
+        .editor-logo {
+            width: 32px;
+            height: 32px;
+            object-fit: contain;
+            flex-shrink: 0;
+        }
+        .editor-title-text-container {
+             display: flex;
+             flex-direction: column;
+             justify-content: center;
+             min-width: 0; /* Prevent text overflow from pushing layout */
+        }
+        .editor-title {
+            font-weight: 500;
+            font-size: 1.25rem; /* h1 size */
+            color: var(--md-on-surface-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.2; /* Adjust line height */
+        }
+        .editor-subtext {
+            font-size: 0.8rem; /* h2/h3 size */
+            font-weight: 400;
+            color: var(--md-on-surface-secondary); /* Secondary color */
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.2; /* Adjust line height */
+        }
+
+        /* --- Controls Container in Top Bar --- */
+        .editor-controls {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-unit);
+            flex-shrink: 0; /* Prevent controls from shrinking */
+            flex-wrap: wrap; /* Allow wrapping */
+            justify-content: flex-end; /* Keep buttons right aligned when wrapped */
+        }
+
+        /* --- Text Button Styling --- */
+        .editor-controls button {
+            padding: calc(var(--spacing-unit) * 0.75) calc(var(--spacing-unit) * 1.5);
+            font-size: 0.8rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            color: var(--md-primary-color);
+            background-color: transparent;
+            border: 1px solid transparent;
+            border-radius: var(--md-border-radius);
+            cursor: pointer;
+            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+            white-space: nowrap;
+        }
+        .editor-controls button:hover:not(:disabled) {
+            background-color: rgba(230, 138, 0, 0.08);
+        }
+        .editor-controls button:active:not(:disabled) {
+            background-color: rgba(230, 138, 0, 0.15);
+        }
+        .editor-controls button.active-toggle {
+             background-color: rgba(230, 138, 0, 0.1);
+             font-weight: 700;
+        }
+        .editor-controls button.run-button {
+            background-color: var(--md-primary-color);
+            color: var(--md-on-primary-color);
+            border-color: transparent;
+            box-shadow: var(--md-elevation-1);
+        }
+        .editor-controls button.run-button:hover {
+            background-color: var(--md-primary-dark-color);
+            box-shadow: var(--md-elevation-2);
+        }
+
+        /* --- Mobile Top Bar Adjustments --- */
+        @media (max-width: 650px) { /* Adjust breakpoint as needed */
+            .editor-top-bar {
+                flex-wrap: wrap; /* Allow wrapping */
+                justify-content: space-between; /* Keep title left, controls right */
+                padding-bottom: calc(var(--spacing-unit) * 0.5); /* Add a bit of bottom padding when wrapped */
+            }
+            .editor-controls {
+                 /* Take full width when wrapped, buttons align to right */
+                 width: 100%;
+                 justify-content: flex-end;
+                 margin-top: calc(var(--spacing-unit) * 0.5); /* Add space above wrapped buttons */
+                 gap: calc(var(--spacing-unit) * 0.5); /* Reduce gap slightly */
+            }
+             .editor-controls button {
+                 padding: calc(var(--spacing-unit) * 0.5) var(--spacing-unit); /* Slightly smaller padding */
+                 font-size: 0.75rem; /* Slightly smaller font */
+             }
+        }
+
+        /* --- Main Panels Container --- */
+        .panels-container {
+            display: flex;
+            flex-grow: 1;
+            /* Calculate height dynamically based on actual top bar height */
+            height: calc(100vh - var(--calculated-top-bar-height, var(--top-bar-height-desktop)));
+            width: 100vw;
+            gap: var(--panel-gap);
+            padding: var(--panel-gap);
+            background-color: var(--md-background-color);
+            transition: gap 0.3s ease, padding 0.3s ease, height 0.3s ease; /* Animate height change */
+        }
+
+        /* --- Panel Base Styles --- */
+        .panel {
+            flex-grow: 1;
+            flex-shrink: 1;
+            flex-basis: calc(50% - (var(--panel-gap) / 2));
+            min-width: 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--md-surface-color);
+            border-radius: var(--md-border-radius);
+            box-shadow: var(--md-elevation-1);
+            position: relative;
+            overflow: hidden;
+            transition: flex-basis 0.3s ease, opacity 0.3s ease, margin 0.3s ease, padding 0.3s ease, border 0.3s ease, border-radius 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        /* --- Responsive Layout --- */
+        .panels-container { flex-direction: column; } /* Mobile Default */
+        .panel { flex-basis: calc(50% - (var(--panel-gap) / 2)); }
+        @media (min-width: 768px) { /* Desktop */
+            .panels-container { flex-direction: row; }
+            .panel { flex-basis: calc(50% - (var(--panel-gap) / 2)); }
+        }
+
+        /* --- CodeMirror & Iframe --- */
+        #code-input-container { flex-grow: 1; overflow: hidden; position: relative; height: 100%; }
+        .CodeMirror { height: 100% !important; font-size: 14px; line-height: 1.5; border-radius: inherit; }
+        .cm-s-neat.CodeMirror { background-color: #ffffff; color: #333; }
+        .cm-s-neat .CodeMirror-gutters { background: #f7f7f7; border-right: 1px solid #ddd; }
+        .cm-s-neat .CodeMirror-linenumber { color: #aaa; }
+        .cm-s-neat .CodeMirror-cursor { border-left: 1px solid black; }
+        .CodeMirror-vscrollbar::-webkit-scrollbar, .CodeMirror-hscrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+        .CodeMirror-vscrollbar::-webkit-scrollbar-thumb, .CodeMirror-hscrollbar::-webkit-scrollbar-thumb { background-color: rgba(0,0,0,0.2); border-radius: 4px; }
+        .CodeMirror-vscrollbar::-webkit-scrollbar-track, .CodeMirror-hscrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.05); }
+        iframe#output-frame { flex-grow: 1; width: 100%; height: 100%; border: none; background-color: #fff; }
+
+        /* --- Panel Visibility Control --- */
+        .panel.hidden { flex-basis: 0 !important; flex-grow: 0 !important; padding: 0 !important; margin: 0 !important; border: none !important; opacity: 0; overflow: hidden; pointer-events: none; & > * { display: none; } }
+        .panels-container.fullscreen-active { gap: 0; padding: 0; }
+        .panels-container.fullscreen-active .panel:not(.hidden) { border-radius: 0; box-shadow: none; }
+
+    </style>
+</head>
+<body>
+    <!-- Top Bar -->
+    <div class="editor-top-bar" id="editor-top-bar">
+        <div class="editor-title-block">
+            <img src="https://em-content.zobj.net/source/google/387/soft-ice-cream_1f366.png" alt="Logo" class="editor-logo">
+            <div class="editor-title-text-container">
+                 <div class="editor-title">Bing Chilling Editor</div>
+                 <div class="editor-subtext">Front-end Web code</div>
+            </div>
+        </div>
+        <div class="editor-controls">
+            <button id="run-button" class="run-button" title="Run Code (Ctrl+Enter / Cmd+Enter)">Run</button>
+            <button id="copy-button" title="Copy Code to Clipboard">Copy</button>
+            <button id="toggle-input-button" title="Toggle Code Panel">Code</button>
+            <button id="toggle-output-button" title="Toggle Preview Panel">Preview</button>
+        </div>
+    </div>
+
+    <!-- Panels -->
+    <div class="panels-container" id="panels-container">
+        <!-- Input Panel -->
+        <div class="panel panel-input" id="input-panel">
+            <div id="code-input-container"></div>
+        </div>
+
+        <!-- Output Panel -->
+        <div class="panel panel-output" id="output-panel">
+            <iframe id="output-frame" title="Rendered Output" sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-modals"></iframe>
+        </div>
+    </div>
+
+    <!-- CodeMirror JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/mode/htmlmixed/htmlmixed.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/addon/edit/closetag.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/addon/edit/matchbrackets.min.js"></script>
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/addon/hint/show-hint.min.js"></script> -->
+
+
+    <script>
+        // --- DOM References ---
+        const topBar = document.getElementById('editor-top-bar');
+        const panelsContainer = document.getElementById('panels-container');
+        const outputFrame = document.getElementById('output-frame');
+        const runButton = document.getElementById('run-button');
+        const copyButton = document.getElementById('copy-button');
+        const toggleInputButton = document.getElementById('toggle-input-button');
+        const toggleOutputButton = document.getElementById('toggle-output-button');
+        const inputPanel = document.getElementById('input-panel');
+        const outputPanel = document.getElementById('output-panel');
+        const codeInputContainer = document.getElementById('code-input-container');
+
+        // --- State ---
+        let isInputVisible = true;
+        let isOutputVisible = true;
+
+        // --- Initialize CodeMirror ---
+        const editor = CodeMirror(codeInputContainer, {
+            mode: "htmlmixed", theme: "neat", lineNumbers: true,
+            lineWrapping: true, autoCloseTags: true, matchBrackets: true,
+            indentUnit: 2, tabSize: 2,
+        });
+
+        // --- Core Functions ---
+        function updateOutput() { /* ... same as before ... */
+             try {
+                const fullCode = editor.getValue();
+                // Use srcdoc for a cleaner iframe update
+                outputFrame.srcdoc = fullCode;
+            } catch (e) {
+                console.error("Error updating output frame:", e);
+                try {
+                    outputFrame.srcdoc = '<html><head><style>body{font-family:sans-serif;color:red;padding:10px;}</style></head><body>Error preparing code for preview. See console (F12).</body></html>';
+                } catch (fallbackError) {
+                     console.error("Failed to set error message in iframe:", fallbackError);
+                     // Absolute fallback if even setting error message fails
+                     outputFrame.src = "about:blank";
+                }
+            }
+        }
+        function copyCode() { /* ... same as before ... */
+             const codeToCopy = editor.getValue();
+            navigator.clipboard.writeText(codeToCopy).then(() => {
+                const originalText = copyButton.textContent;
+                copyButton.textContent = 'Copied!';
+                copyButton.style.color = '#4CAF50'; // Green feedback
+                setTimeout(() => {
+                    copyButton.textContent = originalText;
+                    copyButton.style.color = '';
+                }, 1500);
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+                const originalText = copyButton.textContent;
+                copyButton.textContent = 'Error!';
+                copyButton.style.color = '#F44336'; // Red feedback
+                setTimeout(() => {
+                    copyButton.textContent = originalText;
+                    copyButton.style.color = '';
+                }, 2000);
+            });
+        }
+
+        // --- Layout Update Function ---
+        function updateLayout() {
+            // Apply hidden class based on state
+            inputPanel.classList.toggle('hidden', !isInputVisible);
+            outputPanel.classList.toggle('hidden', !isOutputVisible);
+
+            // Check if only one panel is visible
+            const isFullscreen = (isInputVisible && !isOutputVisible) || (!isInputVisible && isOutputVisible);
+            panelsContainer.classList.toggle('fullscreen-active', isFullscreen);
+
+            // Update button 'active' state
+            toggleInputButton.classList.toggle('active-toggle', isInputVisible);
+            toggleOutputButton.classList.toggle('active-toggle', isOutputVisible);
+
+            // Recalculate panel container height based on actual top bar height
+            const currentTopBarHeight = topBar.offsetHeight;
+            document.documentElement.style.setProperty('--calculated-top-bar-height', `${currentTopBarHeight}px`);
+
+            // Refresh CodeMirror if it just became visible
+            if (isInputVisible && editor) {
+                setTimeout(() => editor.refresh(), 0);
+            }
+        }
+
+        // --- Event Listeners ---
+        runButton.addEventListener('click', updateOutput);
+        copyButton.addEventListener('click', copyCode);
+
+        toggleInputButton.addEventListener('click', () => {
+            isInputVisible = !isInputVisible;
+            if (!isInputVisible && !isOutputVisible) { isInputVisible = true; } // Prevent hiding both
+            updateLayout();
+        });
+
+        toggleOutputButton.addEventListener('click', () => {
+            isOutputVisible = !isOutputVisible;
+            if (!isInputVisible && !isOutputVisible) { isOutputVisible = true; } // Prevent hiding both
+            updateLayout();
+        });
+
+        // CodeMirror keyboard shortcuts
+        editor.setOption("extraKeys", {
+          "Ctrl-Enter": function(cm) { updateOutput(); },
+          "Cmd-Enter": function(cm) { updateOutput(); },
+          "Esc": function(cm) {
+              if (panelsContainer.classList.contains('fullscreen-active')) {
+                  isInputVisible = true; isOutputVisible = true; updateLayout();
+              } else { return CodeMirror.Pass; }
+          }
+        });
+
+        // Adjust layout on window resize (especially for top bar height changes)
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(updateLayout, 100); // Debounce resize events
+        });
+
+
+        // --- Simple Starter Template ---
+        const initialCodeValue = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Page</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            line-height: 1.5;
+        }
+        h1 {
+            color: steelblue;
+        }
+        /* Add your CSS rules here */
+
+    </style>
+</head>
+<body>
+
+    <h1>Hello World!</h1>
+    <p>This is your starter HTML content.</p>
+
+    <!-- Add more HTML elements here -->
+
+    <script>
+        // Add your JavaScript code here
+        console.log('Page script loaded!');
+
+        function greet() {
+            alert('Hello from JavaScript!');
+        }
+    <\/script>
+</body>
+</html>`;
+
+        editor.setValue(initialCodeValue);
+
+        // --- Initial Page Load Setup ---
+        updateOutput(); // Run initial code
+        updateLayout(); // Set initial layout and calculate heights
+
+    </script>
+</body>
+</html>
